@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>WHERE IS MY BUS</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --red:#C62828;--red-dark:#8B0000;--red-light:#FFEBEE;--red-mid:#EF5350;
+  --white:#FFFFFF;--bg:#F5F5F5;--text:#212121;--muted:#757575;
+  --border:#E0E0E0;--green:#2E7D32;--orange:#E65100;
+  --card:#FFFFFF;--shadow:0 2px 8px rgba(0,0,0,0.10);
+}
+body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--text);
+  max-width:420px;margin:0 auto;height:100vh;overflow:hidden;position:relative}
+.screen{display:none;height:100vh;flex-direction:column;overflow:hidden}
+.screen.active{display:flex}
+
+/* SPLASH */
+#splash{background:var(--red);align-items:center;justify-content:center;gap:20px}
+.splash-icon{width:90px;height:90px;background:rgba(255,255,255,0.15);border-radius:22px;
+  display:flex;align-items:center;justify-content:center;font-size:48px}
+.splash-title{color:#fff;font-size:22px;font-weight:700;text-align:center;letter-spacing:1px}
+.splash-sub{color:rgba(255,255,255,0.75);font-size:13px;text-align:center}
+.splash-loader{width:60px;height:4px;background:rgba(255,255,255,0.3);border-radius:2px;margin-top:16px;overflow:hidden}
+.splash-loader-bar{height:100%;width:0%;background:#fff;border-radius:2px;animation:load 2s ease forwards}
+@keyframes load{to{width:100%}}
+
+/* ROLE SELECT */
+#roleSelect{background:var(--bg)}
+.role-header{background:var(--red);padding:40px 24px 28px;color:#fff}
+.role-header h2{font-size:20px;font-weight:700}
+.role-header p{font-size:13px;opacity:0.8;margin-top:4px}
+.role-cards{padding:20px 16px;display:flex;flex-direction:column;gap:14px;flex:1}
+.role-card{background:var(--card);border-radius:16px;padding:20px;display:flex;
+  align-items:center;gap:16px;box-shadow:var(--shadow);cursor:pointer;border:2px solid transparent;
+  transition:all 0.2s}
+.role-card:active{transform:scale(0.98)}
+.role-card.passenger{border-color:var(--red-light)}
+.role-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;
+  justify-content:center;font-size:26px;flex-shrink:0}
+.role-icon.p{background:#FFEBEE}
+.role-icon.o{background:#E8F5E9}
+.role-icon.a{background:#E3F2FD}
+.role-info h3{font-size:16px;font-weight:600;color:var(--text)}
+.role-info span{font-size:12px;color:var(--muted);display:block;margin-top:2px}
+.role-info .ta{font-size:11px;color:var(--red);font-weight:500}
+.role-arrow{margin-left:auto;color:var(--muted);font-size:20px}
+
+/* LOGIN */
+#loginScreen{background:var(--white)}
+.login-header{background:var(--red);padding:50px 24px 30px;color:#fff;position:relative}
+.login-back{position:absolute;top:16px;left:16px;background:rgba(255,255,255,0.2);
+  border:none;color:#fff;width:36px;height:36px;border-radius:10px;font-size:20px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center}
+.login-header h2{font-size:20px;font-weight:700}
+.login-header p{font-size:12px;opacity:0.8;margin-top:4px}
+.login-body{padding:28px 20px;flex:1;overflow-y:auto}
+.form-group{margin-bottom:20px}
+.form-group label{font-size:13px;font-weight:500;color:var(--muted);display:block;margin-bottom:8px}
+.form-group .label-ta{font-size:11px;color:var(--red);margin-left:6px}
+.form-input{width:100%;padding:14px 16px;border:1.5px solid var(--border);border-radius:12px;
+  font-size:15px;font-family:'Poppins',sans-serif;background:var(--bg);color:var(--text);outline:none;transition:border 0.2s}
+.form-input:focus{border-color:var(--red)}
+.otp-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.otp-hint{font-size:11px;color:var(--muted);margin-top:6px}
+.otp-hint span{color:var(--red);font-weight:600}
+.btn-primary{width:100%;padding:15px;background:var(--red);color:#fff;border:none;
+  border-radius:12px;font-size:15px;font-weight:600;font-family:'Poppins',sans-serif;cursor:pointer;
+  transition:background 0.2s;margin-top:8px}
+.btn-primary:active{background:var(--red-dark)}
+.demo-note{background:var(--red-light);border-radius:10px;padding:12px 14px;margin-top:16px;
+  font-size:12px;color:var(--red-dark);line-height:1.6}
+.demo-note strong{font-weight:600}
+
+/* APP WRAPPER */
+.app-wrapper{flex:1;display:flex;flex-direction:column;overflow:hidden;height:100vh}
+
+/* TOP BAR */
+.topbar{background:var(--red);padding:14px 16px 12px;color:#fff;display:flex;align-items:center;gap:12px;
+  flex-shrink:0}
+.topbar-menu{background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:2px}
+.topbar-info{flex:1}
+.topbar-info .app-name{font-size:15px;font-weight:700;letter-spacing:0.5px}
+.topbar-info .route-name{font-size:11px;opacity:0.8;margin-top:1px}
+.topbar-badge{background:rgba(255,255,255,0.2);border-radius:20px;padding:4px 10px;
+  font-size:11px;font-weight:500}
+.topbar-icon{background:rgba(255,255,255,0.2);border:none;color:#fff;width:36px;height:36px;
+  border-radius:10px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+/* TAB CONTENT */
+.tab-content{flex:1;overflow-y:auto;overflow-x:hidden}
+.tab-pane{display:none;height:100%}
+.tab-pane.active{display:block}
+
+/* BOTTOM NAV */
+.bottom-nav{background:var(--white);border-top:1px solid var(--border);
+  display:grid;flex-shrink:0;padding:6px 0 10px}
+.nav-btn{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;gap:3px;padding:6px 4px;transition:all 0.2s}
+.nav-btn .nav-icon{font-size:22px;line-height:1}
+.nav-btn .nav-label{font-size:10px;font-weight:500;color:var(--muted)}
+.nav-btn.active .nav-label{color:var(--red)}
+.nav-btn.active .nav-icon{filter:none}
+.nav-dot{width:4px;height:4px;background:var(--red);border-radius:50%;margin-top:1px;opacity:0}
+.nav-btn.active .nav-dot{opacity:1}
+
+/* MAP */
+#map{width:100%;height:100%;min-height:300px}
+.map-wrapper{position:relative;flex:1;overflow:hidden}
+.map-search{position:absolute;top:12px;left:12px;right:12px;z-index:1000;
+  background:var(--white);border-radius:12px;box-shadow:0 3px 12px rgba(0,0,0,0.15);
+  display:flex;align-items:center;padding:10px 14px;gap:10px}
+.map-search input{border:none;outline:none;flex:1;font-size:14px;font-family:'Poppins',sans-serif;color:var(--text)}
+.map-search input::placeholder{color:var(--muted)}
+.map-search-icon{font-size:18px;color:var(--red)}
+.map-fab{position:absolute;bottom:16px;right:16px;z-index:1000;background:var(--red);
+  color:#fff;border:none;width:48px;height:48px;border-radius:50%;font-size:22px;cursor:pointer;
+  box-shadow:0 4px 12px rgba(198,40,40,0.35);display:flex;align-items:center;justify-content:center}
+.bus-popup{padding:4px 2px}
+.bus-popup .bp-route{font-weight:700;font-size:14px;color:var(--red)}
+.bus-popup .bp-info{font-size:12px;color:var(--muted);margin-top:4px}
+.bus-popup .bp-eta{font-size:13px;font-weight:600;color:var(--green);margin-top:6px}
+
+/* CARDS */
+.section-pad{padding:16px}
+.section-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;
+  letter-spacing:0.8px;margin-bottom:12px}
+.card{background:var(--card);border-radius:14px;padding:16px;box-shadow:var(--shadow);margin-bottom:12px}
+.card-row{display:flex;align-items:center;gap:12px}
+.card-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.card-dot.active{background:var(--green)}
+.card-dot.idle{background:#FFA726}
+.card-dot.offline{background:#BDBDBD}
+.route-badge{background:var(--red-light);color:var(--red-dark);font-size:12px;
+  font-weight:700;padding:4px 10px;border-radius:8px;display:inline-block}
+.route-detail{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.route-stops{display:flex;align-items:center;gap:8px;margin-top:8px;overflow-x:auto;padding-bottom:4px}
+.stop-chip{background:var(--bg);border:1px solid var(--border);border-radius:20px;
+  padding:4px 10px;font-size:11px;white-space:nowrap;flex-shrink:0}
+.eta-chip{background:#E8F5E9;color:#1B5E20;font-size:12px;font-weight:600;
+  padding:4px 10px;border-radius:8px}
+.occupancy-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px}
+.occupancy-fill{height:100%;border-radius:3px;transition:width 0.5s}
+
+/* STATS GRID */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.stat-card{background:var(--card);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+.stat-num{font-size:28px;font-weight:700;color:var(--red)}
+.stat-label{font-size:12px;color:var(--muted);margin-top:4px}
+.stat-ta{font-size:10px;color:var(--muted)}
+
+/* OPERATOR TRIP */
+.trip-status{background:var(--red);border-radius:16px;padding:24px;margin-bottom:16px;color:#fff;text-align:center}
+.trip-status.active-trip{background:var(--green)}
+.trip-label{font-size:13px;opacity:0.85;margin-bottom:8px}
+.trip-route{font-size:20px;font-weight:700;margin-bottom:4px}
+.trip-sub{font-size:12px;opacity:0.75}
+.btn-trip{width:100%;padding:16px;border:none;border-radius:14px;font-size:16px;font-weight:700;
+  font-family:'Poppins',sans-serif;cursor:pointer;transition:all 0.2s;margin-top:8px}
+.btn-start{background:#fff;color:var(--green)}
+.btn-stop{background:#fff;color:var(--red-dark)}
+.btn-trip:active{transform:scale(0.97)}
+.gps-status{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:12px;
+  font-size:12px;opacity:0.85}
+.gps-dot{width:8px;height:8px;border-radius:50%;background:#4CAF50;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* OPERATOR STATS ROW */
+.op-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.op-stat{background:var(--card);border-radius:12px;padding:12px;text-align:center;box-shadow:var(--shadow)}
+.op-stat-num{font-size:20px;font-weight:700;color:var(--red)}
+.op-stat-label{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* ROUTE LIST */
+.route-item{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:10px;
+  box-shadow:var(--shadow);cursor:pointer;transition:all 0.2s}
+.route-item:active{transform:scale(0.98)}
+.route-item-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.route-item-name{font-size:14px;font-weight:600}
+.route-item-info{display:flex;align-items:center;gap:12px}
+.route-info-chip{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+
+/* ADMIN TABLE */
+.admin-table{width:100%;border-collapse:collapse;font-size:13px}
+.admin-table th{background:var(--red-light);color:var(--red-dark);padding:10px 12px;
+  text-align:left;font-weight:600;font-size:12px}
+.admin-table td{padding:10px 12px;border-bottom:1px solid var(--border)}
+.admin-table tr:last-child td{border-bottom:none}
+.status-pill{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.status-pill.active{background:#E8F5E9;color:#1B5E20}
+.status-pill.idle{background:#FFF8E1;color:#F57F17}
+.status-pill.off{background:#FAFAFA;color:#9E9E9E}
+
+/* ALERT ITEMS */
+.alert-item{display:flex;align-items:flex-start;gap:12px;background:var(--card);
+  border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow)}
+.alert-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:18px;flex-shrink:0}
+.alert-icon.info{background:#E3F2FD}
+.alert-icon.warn{background:#FFF8E1}
+.alert-icon.good{background:#E8F5E9}
+.alert-text h4{font-size:13px;font-weight:600}
+.alert-text p{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}
+.alert-time{font-size:10px;color:var(--muted);margin-top:6px}
+
+/* PROFILE */
+.profile-header{background:var(--red);padding:30px 20px 24px;text-align:center;color:#fff}
+.profile-avatar{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,0.25);
+  margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:32px;
+  border:3px solid rgba(255,255,255,0.5)}
+.profile-name{font-size:17px;font-weight:700}
+.profile-sub{font-size:12px;opacity:0.8;margin-top:4px}
+.profile-menu{padding:16px}
+.menu-item{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--card);
+  border-radius:12px;margin-bottom:8px;box-shadow:var(--shadow);cursor:pointer}
+.menu-item-icon{font-size:20px;width:36px;text-align:center}
+.menu-item-text{font-size:14px;font-weight:500;flex:1}
+.menu-item-arrow{color:var(--muted);font-size:16px}
+.logout-btn{width:100%;padding:14px;background:var(--red-light);color:var(--red-dark);
+  border:none;border-radius:12px;font-size:14px;font-weight:600;font-family:'Poppins',sans-serif;
+  cursor:pointer;margin-top:8px}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* BUS MARKER */
+.bus-marker-icon{background:var(--red);color:#fff;border-radius:8px;padding:4px 6px;
+  font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.25)}
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash" class="screen active">
+  <div class="splash-icon">🚌</div>
+  <div class="splash-title">WHERE IS MY BUS</div>
+  <div class="splash-sub">என் பஸ் எங்கே? · Live Bus Tracker</div>
+  <div class="splash-loader"><div class="splash-loader-bar"></div></div>
+  <div style="position:absolute;bottom:30px;font-size:11px;color:rgba(255,255,255,0.5)">Tamil Nadu · Powered by GPS</div>
+</div>
+
+<!-- ROLE SELECT -->
+<div id="roleSelect" class="screen">
+  <div class="role-header">
+    <h2>🚌 WHERE IS MY BUS</h2>
+    <p>நீங்கள் யார்? · Who are you?</p>
+  </div>
+  <div class="role-cards">
+    <div class="role-card" onclick="selectRole('passenger')">
+      <div class="role-icon p">🧑‍💼</div>
+      <div class="role-info">
+        <h3>Passenger</h3>
+        <span>பயணி · Track your bus live</span>
+        <span class="ta">பஸ் எங்கே இருக்கு?</span>
+      </div>
+      <div class="role-arrow">›</div>
+    </div>
+    <div class="role-card" onclick="selectRole('operator')">
+      <div class="role-icon o">🚌</div>
+      <div class="role-info">
+        <h3>Bus Operator</h3>
+        <span>ஓட்டுனர் · Broadcast your location</span>
+        <span class="ta">உங்கள் location share பண்ணுங்க</span>
+      </div>
+      <div class="role-arrow">›</div>
+    </div>
+    <div class="role-card" onclick="selectRole('admin')">
+      <div class="role-icon a">⚙️</div>
+      <div class="role-info">
+        <h3>Admin</h3>
+        <span>நிர்வாகி · Manage all buses & routes</span>
+        <span class="ta">எல்லாவற்றையும் நிர்வகிக்கவும்</span>
+      </div>
+      <div class="role-arrow">›</div>
+    </div>
+  </div>
+  <div style="text-align:center;padding-bottom:20px;font-size:11px;color:var(--muted)">
+    Mayiladuthurai District · Tamil Nadu
+  </div>
+</div>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="screen">
+  <div class="login-header">
+    <button class="login-back" onclick="showScreen('roleSelect')">‹</button>
+    <div id="loginTitle" style="padding-top:20px">
+      <h2>Passenger Login</h2>
+      <p>பயணி உள்நுழைவு</p>
+    </div>
+  </div>
+  <div class="login-body">
+    <div id="otpLoginForm">
+      <div class="form-group">
+        <label>Mobile Number <span class="label-ta">மொபைல் எண்</span></label>
+        <input class="form-input" type="tel" id="phoneInput" placeholder="98765 43210" maxlength="10"/>
+      </div>
+      <div id="operatorIdGroup" class="form-group" style="display:none">
+        <label>Operator ID <span class="label-ta">ஓட்டுனர் ID</span></label>
+        <input class="form-input" type="text" id="operatorId" placeholder="OP001"/>
+      </div>
+      <button class="btn-primary" onclick="sendOTP()">Send OTP · OTP அனுப்பு</button>
+      <div id="otpGroup" style="display:none;margin-top:16px">
+        <div class="form-group">
+          <label>Enter OTP <span class="label-ta">OTP உள்ளிடவும்</span></label>
+          <input class="form-input" type="number" id="otpInput" placeholder="_ _ _ _" maxlength="4"/>
+          <div class="otp-hint">Demo OTP: <span>1234</span></div>
+        </div>
+        <button class="btn-primary" onclick="verifyOTP()">Verify & Enter · உள்நுழைவு</button>
+      </div>
+    </div>
+    <div id="adminLoginForm" style="display:none">
+      <div class="form-group">
+        <label>Username <span class="label-ta">பயனர்பெயர்</span></label>
+        <input class="form-input" type="text" id="adminUser" placeholder="admin"/>
+      </div>
+      <div class="form-group">
+        <label>Password <span class="label-ta">கடவுச்சொல்</span></label>
+        <input class="form-input" type="password" id="adminPass" placeholder="••••••••"/>
+      </div>
+      <button class="btn-primary" onclick="adminLogin()">Login · உள்நுழை</button>
+      <div class="demo-note"><strong>Demo:</strong> admin / admin123</div>
+    </div>
+  </div>
+</div>
+
+<!-- PASSENGER APP -->
+<div id="passengerApp" class="screen">
+  <div class="app-wrapper">
+    <div class="topbar">
+      <div class="topbar-info">
+        <div class="app-name">WHERE IS MY BUS 🚌</div>
+        <div class="route-name">Mayiladuthurai · மயிலாடுதுறை</div>
+      </div>
+      <div class="topbar-badge" id="liveCount">5 Live</div>
+      <button class="topbar-icon" onclick="alert('Notifications')">🔔</button>
+    </div>
+    <div class="tab-content">
+      <!-- MAP TAB -->
+      <div class="tab-pane active" id="p-tab-map" style="display:flex;flex-direction:column;height:100%">
+        <div class="map-wrapper" style="flex:1;position:relative">
+          <div class="map-search">
+            <span class="map-search-icon">🔍</span>
+            <input type="text" placeholder="Route or Stop search · தேடுங்கள்..."/>
+          </div>
+          <div id="map" style="height:100%;width:100%"></div>
+          <button class="map-fab" onclick="centerMap()">📍</button>
+        </div>
+        <div style="background:var(--white);padding:10px 16px;border-top:1px solid var(--border)">
+          <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:2px">
+            <div onclick="filterBus('all')" style="background:var(--red);color:#fff;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer">All Routes</div>
+            <div onclick="filterBus('MYL-101')" style="background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;white-space:nowrap;cursor:pointer">MYL-101</div>
+            <div onclick="filterBus('MYL-102')" style="background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;white-space:nowrap;cursor:pointer">MYL-102</div>
+            <div onclick="filterBus('MYL-103')" style="background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;white-space:nowrap;cursor:pointer">MYL-103</div>
+          </div>
+        </div>
+      </div>
+      <!-- ROUTES TAB -->
+      <div class="tab-pane" id="p-tab-routes" style="padding:16px;overflow-y:auto;height:100%">
+        <div class="section-title">Available Routes · கிடைக்கும் பாதைகள்</div>
+        <div class="route-item" onclick="toggleRoute(this)">
+          <div class="route-item-top">
+            <div>
+              <span class="route-badge">MYL-101</span>
+              <div class="route-item-name" style="margin-top:6px">Mayiladuthurai → Chidambaram</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">மயிலாடுதுறை → சிதம்பரம்</div>
+            </div>
+            <span class="eta-chip">3 Active</span>
+          </div>
+          <div class="route-item-info">
+            <span class="route-info-chip">📏 58 km</span>
+            <span class="route-info-chip">🛑 8 stops</span>
+            <span class="route-info-chip">⏱ ~90 min</span>
+          </div>
+          <div class="route-detail" style="display:none">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Stops · நிறுத்தங்கள்</div>
+            <div class="route-stops">
+              <div class="stop-chip">Mayiladuthurai</div>
+              <div style="color:var(--muted)">›</div>
+              <div class="stop-chip">Sirkazhi</div>
+              <div style="color:var(--muted)">›</div>
+              <div class="stop-chip">Kollidam</div>
+              <div style="color:var(--muted)">›</div>
+              <div class="stop-chip">Pichavaram</div>
+              <div style="color:var(--muted)">›</div>
+              <div class="stop-chip">Chidambaram</div>
+            </div>
+          </div>
+        </div>
+        <div class="route-item" onclick="toggleRoute(this)">
+          <div class="route-item-top">
+            <div>
+              <span class="route-badge">MYL-102</span>
+              <div class="route-item-name" style="margin-top:6px">Mayiladuthurai → Nagapattinam</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">மயிலாடுதுறை → நாகப்பட்டினம்</div>
+            </div>
+            <span class="eta-chip">2 Active</span>
+          </div>
+          <div class="route-item-info">
+            <span class="route-info-chip">📏 35 km</span>
+            <span class="route-info-chip">🛑 5 stops</span>
+            <span class="route-info-chip">⏱ ~55 min</span>
+          </div>
+          <div class="route-detail" style="display:none">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Stops · நிறுத்தங்கள்</div>
+            <div class="route-stops">
+              <div class="stop-chip">Mayiladuthurai</div>
+              <div style="color:var(--muted)">›</div>
+              <div class="stop-chip">Thirukadaiyur</div>
+              <div style="color:var(--muted)">›</div>
+              <div class="stop-chip">Karaikkal</div>
+              <div style="color:var(--muted)">›</div>
+              <div class="stop-chip">Nagapattinam</div>
+            </div>
+          </div>
+        </div>
+        <div class="route-item" onclick="toggleRoute(this)">
+          <div class="route-item-top">
+            <div>
+              <span class="route-badge">MYL-103</span>
+              <div class="route-item-name" style="margin-top:6px">Mayiladuthurai → Kumbakonam</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">மயிலாடுதுறை → கும்பகோணம்</div>
+            </div>
+            <span class="eta-chip">2 Active</span>
+          </div>
+          <div class="route-item-info">
+            <span class="route-info-chip">📏 42 km</span>
+            <span class="route-info-chip">🛑 6 stops</span>
+            <span class="route-info-chip">⏱ ~65 min</span>
+          </div>
+          <div class="route-detail" style="display:none">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Stops · நிறுத்தங்கள்</div>
+            <div class="route-stops">
+              <div class="stop-chip">Mayiladuthurai</div>
+              <div style="color:var(--muted)">›</div>
+              <div class="stop-chip">Papanasam</div>
+              <div style="color:var(--muted)">›</div>
+              <div class="stop-chip">Thiruvidaimaruthur</div>
+              <div style="color:var(--muted)">›</div>
+              <div class="stop-chip">Kumbakonam</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- ALERTS TAB -->
+      <div class="tab-pane" id="p-tab-alerts" style="padding:16px;overflow-y:auto;height:100%">
+        <div class="section-title">Alerts · அறிவிப்புகள்</div>
+        <div class="alert-item">
+          <div class="alert-icon info">ℹ️</div>
+          <div class="alert-text">
+            <h4>MYL-101 · Bus Approaching</h4>
+            <p>Bus TN68-1234 is 2.3 km away from Sirkazhi Stop<br>சீர்காழி நிறுத்தம் — 8 நிமிடத்தில்</p>
+            <div class="alert-time">2 min ago</div>
+          </div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-icon warn">⚠️</div>
+          <div class="alert-text">
+            <h4>MYL-102 · Slight Delay</h4>
+            <p>Traffic near Karaikkal — 10 min delay<br>காரைக்காலில் போக்குவரத்து — 10 நிமிட தாமதம்</p>
+            <div class="alert-time">15 min ago</div>
+          </div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-icon good">✅</div>
+          <div class="alert-text">
+            <h4>MYL-103 · On Time</h4>
+            <p>All MYL-103 buses running on schedule<br>அனைத்து MYL-103 பேருந்துகளும் சரியான நேரத்தில்</p>
+            <div class="alert-time">30 min ago</div>
+          </div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-icon info">📍</div>
+          <div class="alert-text">
+            <h4>Location Permission</h4>
+            <p>Enable GPS for accurate nearby bus tracking<br>GPS இயக்குங்கள் — அருகில் உள்ள பஸ் காண்க</p>
+            <div class="alert-time">Now</div>
+          </div>
+        </div>
+      </div>
+      <!-- PROFILE TAB -->
+      <div class="tab-pane" id="p-tab-profile" style="height:100%;overflow-y:auto">
+        <div class="profile-header">
+          <div class="profile-avatar">👤</div>
+          <div class="profile-name" id="passengerName">Passenger</div>
+          <div class="profile-sub">Mayiladuthurai · பயணி</div>
+        </div>
+        <div class="profile-menu">
+          <div class="menu-item"><div class="menu-item-icon">🔔</div><div class="menu-item-text">Notifications · அறிவிப்புகள்</div><div class="menu-item-arrow">›</div></div>
+          <div class="menu-item"><div class="menu-item-icon">🗺️</div><div class="menu-item-text">Saved Routes · சேமித்த பாதைகள்</div><div class="menu-item-arrow">›</div></div>
+          <div class="menu-item"><div class="menu-item-icon">🌐</div><div class="menu-item-text">Language · மொழி (Tamil/English)</div><div class="menu-item-arrow">›</div></div>
+          <div class="menu-item"><div class="menu-item-icon">ℹ️</div><div class="menu-item-text">About App · பயன்பாட்டைப் பற்றி</div><div class="menu-item-arrow">›</div></div>
+          <button class="logout-btn" onclick="logout()">Logout · வெளியேறு</button>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-nav" style="grid-template-columns:repeat(4,1fr)">
+      <button class="nav-btn active" id="p-nav-map" onclick="switchTab('p','map')">
+        <div class="nav-icon">🗺️</div><div class="nav-label">Map</div><div class="nav-dot"></div>
+      </button>
+      <button class="nav-btn" id="p-nav-routes" onclick="switchTab('p','routes')">
+        <div class="nav-icon">🚌</div><div class="nav-label">Routes</div><div class="nav-dot"></div>
+      </button>
+      <button class="nav-btn" id="p-nav-alerts" onclick="switchTab('p','alerts')">
+        <div class="nav-icon">🔔</div><div class="nav-label">Alerts</div><div class="nav-dot"></div>
+      </button>
+      <button class="nav-btn" id="p-nav-profile" onclick="switchTab('p','profile')">
+        <div class="nav-icon">👤</div><div class="nav-label">Profile</div><div class="nav-dot"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- OPERATOR APP -->
+<div id="operatorApp" class="screen">
+  <div class="app-wrapper">
+    <div class="topbar">
+      <div class="topbar-info">
+        <div class="app-name">Operator Panel 🚌</div>
+        <div class="route-name" id="opRouteLabel">ஓட்டுனர் நேர்முகம்</div>
+      </div>
+      <button class="topbar-icon" onclick="logout()">⎋</button>
+    </div>
+    <div class="tab-content">
+      <!-- OPERATOR HOME -->
+      <div class="tab-pane active" id="o-tab-home" style="padding:16px;overflow-y:auto;height:100%">
+        <div class="op-stats">
+          <div class="op-stat"><div class="op-stat-num" id="opKm">0</div><div class="op-stat-label">km Today</div></div>
+          <div class="op-stat"><div class="op-stat-num" id="opPass">0</div><div class="op-stat-label">Passengers</div></div>
+          <div class="op-stat"><div class="op-stat-num" id="opTrips">0</div><div class="op-stat-label">Trips</div></div>
+        </div>
+        <div id="tripCard" class="trip-status">
+          <div class="trip-label">Today's Assignment · இன்றைய பணி</div>
+          <div class="trip-route" id="tripRoute">MYL-101</div>
+          <div class="trip-sub" id="tripSub">Mayiladuthurai → Chidambaram</div>
+          <button class="btn-trip btn-start" id="tripBtn" onclick="toggleTrip()">▶ Start Trip · பயணம் தொடங்கு</button>
+          <div class="gps-status" id="gpsStatus" style="display:none">
+            <div class="gps-dot"></div> GPS Broadcasting Live
+          </div>
+        </div>
+        <div class="section-title">Today's Schedule · இன்றைய அட்டவணை</div>
+        <div class="card">
+          <div class="card-row">
+            <div style="background:var(--red-light);border-radius:8px;padding:8px 12px;text-align:center">
+              <div style="font-size:11px;color:var(--muted)">Departure</div>
+              <div style="font-size:16px;font-weight:700;color:var(--red)">06:00</div>
+            </div>
+            <div style="flex:1;text-align:center">
+              <div style="font-size:12px;color:var(--muted)">MYL-101</div>
+              <div style="font-size:13px;font-weight:600">Mayiladuthurai → Chidambaram</div>
+            </div>
+            <div style="background:#E8F5E9;border-radius:8px;padding:8px 12px;text-align:center">
+              <div style="font-size:11px;color:var(--muted)">Arrival</div>
+              <div style="font-size:16px;font-weight:700;color:var(--green)">07:30</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-row">
+            <div style="background:var(--red-light);border-radius:8px;padding:8px 12px;text-align:center">
+              <div style="font-size:11px;color:var(--muted)">Departure</div>
+              <div style="font-size:16px;font-weight:700;color:var(--red)">09:00</div>
+            </div>
+            <div style="flex:1;text-align:center">
+              <div style="font-size:12px;color:var(--muted)">MYL-101</div>
+              <div style="font-size:13px;font-weight:600">Chidambaram → Mayiladuthurai</div>
+            </div>
+            <div style="background:#E8F5E9;border-radius:8px;padding:8px 12px;text-align:center">
+              <div style="font-size:11px;color:var(--muted)">Arrival</div>
+              <div style="font-size:16px;font-weight:700;color:var(--green)">10:30</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- OPERATOR MAP -->
+      <div class="tab-pane" id="o-tab-map" style="display:flex;flex-direction:column;height:100%">
+        <div style="flex:1;position:relative">
+          <div id="opMap" style="height:100%;width:100%"></div>
+        </div>
+        <div style="background:var(--white);padding:12px 16px;border-top:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600">Your Current Location</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px" id="opLocation">11.1035° N, 79.6508° E</div>
+          <div style="font-size:12px;color:var(--green);margin-top:4px">● Sharing live to passengers</div>
+        </div>
+      </div>
+      <!-- OPERATOR PROFILE -->
+      <div class="tab-pane" id="o-tab-profile" style="height:100%;overflow-y:auto">
+        <div class="profile-header">
+          <div class="profile-avatar">🧑‍✈️</div>
+          <div class="profile-name" id="opName">Operator</div>
+          <div class="profile-sub" id="opId">ID: OP001 · Bus TN68-1234</div>
+        </div>
+        <div class="profile-menu">
+          <div class="menu-item"><div class="menu-item-icon">📋</div><div class="menu-item-text">Trip History · பயண வரலாறு</div><div class="menu-item-arrow">›</div></div>
+          <div class="menu-item"><div class="menu-item-icon">📱</div><div class="menu-item-text">GPS Settings</div><div class="menu-item-arrow">›</div></div>
+          <div class="menu-item"><div class="menu-item-icon">🆘</div><div class="menu-item-text">Emergency · அவசரம்</div><div class="menu-item-arrow" style="color:var(--red)">›</div></div>
+          <button class="logout-btn" onclick="logout()">Logout · வெளியேறு</button>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-nav" style="grid-template-columns:repeat(3,1fr)">
+      <button class="nav-btn active" id="o-nav-home" onclick="switchTab('o','home')">
+        <div class="nav-icon">🏠</div><div class="nav-label">Home</div><div class="nav-dot"></div>
+      </button>
+      <button class="nav-btn" id="o-nav-map" onclick="switchTab('o','map');initOpMap()">
+        <div class="nav-icon">📍</div><div class="nav-label">My Location</div><div class="nav-dot"></div>
+      </button>
+      <button class="nav-btn" id="o-nav-profile" onclick="switchTab('o','profile')">
+        <div class="nav-icon">👤</div><div class="nav-label">Profile</div><div class="nav-dot"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN APP -->
+<div id="adminApp" class="screen">
+  <div class="app-wrapper">
+    <div class="topbar">
+      <div class="topbar-info">
+        <div class="app-name">Admin Panel ⚙️</div>
+        <div class="route-name">WHERE IS MY BUS · நிர்வாக பலகை</div>
+      </div>
+      <button class="topbar-icon" onclick="logout()">⎋</button>
+    </div>
+    <div class="tab-content">
+      <!-- DASHBOARD -->
+      <div class="tab-pane active" id="a-tab-dash" style="padding:16px;overflow-y:auto;height:100%">
+        <div class="section-title">Overview · கண்ணோட்டம்</div>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-num">7</div><div class="stat-label">Total Buses<br><span class="stat-ta">மொத்த பேருந்துகள்</span></div></div>
+          <div class="stat-card"><div class="stat-num" style="color:var(--green)">5</div><div class="stat-label">Active Now<br><span class="stat-ta">இப்போது செயல்படும்</span></div></div>
+          <div class="stat-card"><div class="stat-num">3</div><div class="stat-label">Routes<br><span class="stat-ta">பாதைகள்</span></div></div>
+          <div class="stat-card"><div class="stat-num" style="color:var(--orange)">142</div><div class="stat-label">Today's Users<br><span class="stat-ta">இன்றைய பயனர்கள்</span></div></div>
+        </div>
+        <div class="section-title">Live Bus Status</div>
+        <div style="background:var(--card);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)">
+          <table class="admin-table">
+            <thead><tr><th>Bus</th><th>Route</th><th>Status</th><th>Speed</th></tr></thead>
+            <tbody>
+              <tr><td>TN68-1234</td><td>MYL-101</td><td><span class="status-pill active">Active</span></td><td>42 km/h</td></tr>
+              <tr><td>TN68-2345</td><td>MYL-101</td><td><span class="status-pill active">Active</span></td><td>38 km/h</td></tr>
+              <tr><td>TN68-3456</td><td>MYL-102</td><td><span class="status-pill active">Active</span></td><td>55 km/h</td></tr>
+              <tr><td>TN68-4567</td><td>MYL-102</td><td><span class="status-pill idle">Idle</span></td><td>0 km/h</td></tr>
+              <tr><td>TN68-5678</td><td>MYL-103</td><td><span class="status-pill active">Active</span></td><td>47 km/h</td></tr>
+              <tr><td>TN68-6789</td><td>MYL-103</td><td><span class="status-pill active">Active</span></td><td>51 km/h</td></tr>
+              <tr><td>TN68-7890</td><td>MYL-101</td><td><span class="status-pill off">Offline</span></td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <!-- OPERATORS -->
+      <div class="tab-pane" id="a-tab-ops" style="padding:16px;overflow-y:auto;height:100%">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div class="section-title" style="margin-bottom:0">Operators · ஓட்டுநர்கள்</div>
+          <button style="background:var(--red);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-family:'Poppins',sans-serif;cursor:pointer">+ Add</button>
+        </div>
+        <div style="background:var(--card);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)">
+          <table class="admin-table">
+            <thead><tr><th>ID</th><th>Name</th><th>Route</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>OP001</td><td>Murugan K</td><td>MYL-101</td><td><span class="status-pill active">On Duty</span></td></tr>
+              <tr><td>OP002</td><td>Rajan S</td><td>MYL-101</td><td><span class="status-pill active">On Duty</span></td></tr>
+              <tr><td>OP003</td><td>Selvam V</td><td>MYL-102</td><td><span class="status-pill active">On Duty</span></td></tr>
+              <tr><td>OP004</td><td>Kumar P</td><td>MYL-102</td><td><span class="status-pill idle">Break</span></td></tr>
+              <tr><td>OP005</td><td>Anbu R</td><td>MYL-103</td><td><span class="status-pill active">On Duty</span></td></tr>
+              <tr><td>OP006</td><td>Dinesh M</td><td>MYL-103</td><td><span class="status-pill off">Off</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <!-- ROUTES ADMIN -->
+      <div class="tab-pane" id="a-tab-routes" style="padding:16px;overflow-y:auto;height:100%">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div class="section-title" style="margin-bottom:0">Routes · பாதைகள்</div>
+          <button style="background:var(--red);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-family:'Poppins',sans-serif;cursor:pointer">+ Add</button>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="route-badge">MYL-101</span>
+            <span class="status-pill active">Active</span>
+          </div>
+          <div style="font-size:14px;font-weight:600;margin-top:8px">Mayiladuthurai → Chidambaram</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">58 km · 8 stops · 3 buses assigned</div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button style="flex:1;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer">Edit</button>
+            <button style="flex:1;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer">View Map</button>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="route-badge">MYL-102</span>
+            <span class="status-pill active">Active</span>
+          </div>
+          <div style="font-size:14px;font-weight:600;margin-top:8px">Mayiladuthurai → Nagapattinam</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">35 km · 5 stops · 2 buses assigned</div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button style="flex:1;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer">Edit</button>
+            <button style="flex:1;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer">View Map</button>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="route-badge">MYL-103</span>
+            <span class="status-pill active">Active</span>
+          </div>
+          <div style="font-size:14px;font-weight:600;margin-top:8px">Mayiladuthurai → Kumbakonam</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">42 km · 6 stops · 2 buses assigned</div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button style="flex:1;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer">Edit</button>
+            <button style="flex:1;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer">View Map</button>
+          </div>
+        </div>
+      </div>
+      <!-- ADMIN PROFILE -->
+      <div class="tab-pane" id="a-tab-profile" style="height:100%;overflow-y:auto">
+        <div class="profile-header">
+          <div class="profile-avatar">⚙️</div>
+          <div class="profile-name">Admin</div>
+          <div class="profile-sub">System Administrator · நிர்வாகி</div>
+        </div>
+        <div class="profile-menu">
+          <div class="menu-item"><div class="menu-item-icon">📊</div><div class="menu-item-text">Export Reports</div><div class="menu-item-arrow">›</div></div>
+          <div class="menu-item"><div class="menu-item-icon">🔒</div><div class="menu-item-text">Change Password</div><div class="menu-item-arrow">›</div></div>
+          <div class="menu-item"><div class="menu-item-icon">📢</div><div class="menu-item-text">Send Alert to Passengers</div><div class="menu-item-arrow">›</div></div>
+          <div class="menu-item"><div class="menu-item-icon">⚙️</div><div class="menu-item-text">App Settings</div><div class="menu-item-arrow">›</div></div>
+          <button class="logout-btn" onclick="logout()">Logout · வெளியேறு</button>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-nav" style="grid-template-columns:repeat(4,1fr)">
+      <button class="nav-btn active" id="a-nav-dash" onclick="switchTab('a','dash')">
+        <div class="nav-icon">📊</div><div class="nav-label">Dashboard</div><div class="nav-dot"></div>
+      </button>
+      <button class="nav-btn" id="a-nav-ops" onclick="switchTab('a','ops')">
+        <div class="nav-icon">🧑‍✈️</div><div class="nav-label">Operators</div><div class="nav-dot"></div>
+      </button>
+      <button class="nav-btn" id="a-nav-routes" onclick="switchTab('a','routes')">
+        <div class="nav-icon">🗺️</div><div class="nav-label">Routes</div><div class="nav-dot"></div>
+      </button>
+      <button class="nav-btn" id="a-nav-profile" onclick="switchTab('a','profile')">
+        <div class="nav-icon">⚙️</div><div class="nav-label">Settings</div><div class="nav-dot"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+var currentRole='';var mapInstance=null;var opMapInstance=null;var tripActive=false;
+var busMarkers=[];var busPositions=[];var animFrame=null;
+
+var buses=[
+  {id:'TN68-1234',route:'MYL-101',lat:11.1035,lng:79.6508,speed:42,pass:28,color:'#C62828'},
+  {id:'TN68-2345',route:'MYL-101',lat:11.2100,lng:79.6620,speed:38,pass:35,color:'#C62828'},
+  {id:'TN68-3456',route:'MYL-102',lat:11.0500,lng:79.7200,speed:55,pass:22,color:'#1565C0'},
+  {id:'TN68-4567',route:'MYL-102',lat:10.9200,lng:79.7700,speed:0,pass:0,color:'#1565C0'},
+  {id:'TN68-5678',route:'MYL-103',lat:11.0700,lng:79.5500,speed:47,pass:30,color:'#2E7D32'},
+  {id:'TN68-6789',route:'MYL-103',lat:10.9800,lng:79.4500,speed:51,pass:18,color:'#2E7D32'}
+];
+
+var routes={
+  'MYL-101':[[11.1035,79.6508],[11.1500,79.6550],[11.2000,79.6600],[11.2500,79.6650],[11.3000,79.6700],[11.3500,79.6800],[11.3990,79.6930]],
+  'MYL-102':[[11.1035,79.6508],[11.0500,79.7000],[10.9500,79.7500],[10.8500,79.7900],[10.7672,79.8449]],
+  'MYL-103':[[11.1035,79.6508],[11.0600,79.5800],[11.0200,79.5200],[10.9800,79.4700],[10.9618,79.3888]]
+};
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});
+  document.getElementById(id).classList.add('active');
+}
+
+function selectRole(role){
+  currentRole=role;
+  var titles={passenger:['Passenger Login','பயணி உள்நுழைவு'],operator:['Operator Login','ஓட்டுனர் உள்நுழைவு'],admin:['Admin Login','நிர்வாகி உள்நுழைவு']};
+  var t=titles[role];
+  document.getElementById('loginTitle').innerHTML='<h2>'+t[0]+'</h2><p>'+t[1]+'</p>';
+  if(role==='admin'){
+    document.getElementById('otpLoginForm').style.display='none';
+    document.getElementById('adminLoginForm').style.display='block';
+  } else {
+    document.getElementById('otpLoginForm').style.display='block';
+    document.getElementById('adminLoginForm').style.display='none';
+    document.getElementById('operatorIdGroup').style.display=role==='operator'?'block':'none';
+    document.getElementById('otpGroup').style.display='none';
+  }
+  showScreen('loginScreen');
+}
+
+function sendOTP(){
+  var phone=document.getElementById('phoneInput').value;
+  if(phone.length<10){alert('சரியான மொபைல் எண் கொடுங்கள்!\nPlease enter a valid 10-digit mobile number.');return;}
+  document.getElementById('otpGroup').style.display='block';
+  alert('OTP அனுப்பப்பட்டது! Demo OTP: 1234\nOTP Sent! Demo OTP: 1234');
+}
+
+function verifyOTP(){
+  var otp=document.getElementById('otpInput').value;
+  if(otp!=='1234'){alert('தவறான OTP! சரியான OTP: 1234\nWrong OTP! Correct OTP: 1234');return;}
+  if(currentRole==='passenger'){
+    document.getElementById('passengerName').textContent='Passenger '+document.getElementById('phoneInput').value.slice(-4);
+    showScreen('passengerApp');
+    setTimeout(initMap,300);
+  } else if(currentRole==='operator'){
+    var opId=document.getElementById('operatorId').value||'OP001';
+    document.getElementById('opName').textContent='Operator '+opId;
+    document.getElementById('opId').textContent='ID: '+opId+' · Bus TN68-1234';
+    document.getElementById('opRouteLabel').textContent='MYL-101 · Mayiladuthurai→Chidambaram';
+    showScreen('operatorApp');
+  }
+}
+
+function adminLogin(){
+  var u=document.getElementById('adminUser').value;
+  var p=document.getElementById('adminPass').value;
+  if(u==='admin'&&p==='admin123'){showScreen('adminApp');}
+  else{alert('தவறான credentials!\nWrong credentials! Try admin/admin123');}
+}
+
+function logout(){showScreen('roleSelect');if(mapInstance){mapInstance.remove();mapInstance=null;}if(opMapInstance){opMapInstance.remove();opMapInstance=null;}stopBusAnimation();}
+
+function switchTab(prefix,tab){
+  var pane=document.querySelector('#'+(prefix==='p'?'passengerApp':prefix==='o'?'operatorApp':'adminApp')+' .tab-pane.active');
+  if(pane)pane.classList.remove('active');
+  document.getElementById(prefix+'-tab-'+tab).classList.add('active');
+  document.querySelectorAll((prefix==='p'?'#passengerApp':prefix==='o'?'#operatorApp':'#adminApp')+' .nav-btn').forEach(function(b){b.classList.remove('active')});
+  document.getElementById(prefix+'-nav-'+tab).classList.add('active');
+  if(prefix==='p'&&tab==='map'&&mapInstance){setTimeout(function(){mapInstance.invalidateSize();},100);}
+}
+
+function initMap(){
+  if(mapInstance)return;
+  mapInstance=L.map('map',{zoomControl:true,attributionControl:false}).setView([11.1035,79.6508],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(mapInstance);
+  Object.keys(routes).forEach(function(r){
+    var colors={'MYL-101':'#C62828','MYL-102':'#1565C0','MYL-103':'#2E7D32'};
+    L.polyline(routes[r],{color:colors[r],weight:4,opacity:0.6,dashArray:'8,4'}).addTo(mapInstance);
+  });
+  busMarkers=[];
+  buses.forEach(function(b,i){
+    var icon=L.divIcon({className:'',html:'<div class="bus-marker-icon" style="background:'+b.color+'">'+b.route+'</div>',iconAnchor:[30,15]});
+    var m=L.marker([b.lat,b.lng],{icon:icon}).addTo(mapInstance);
+    m.bindPopup('<div class="bus-popup"><div class="bp-route">'+b.id+'</div><div class="bp-info">Route: '+b.route+' · '+b.pass+' passengers · '+b.speed+' km/h</div><div class="bp-eta">ETA: '+(Math.floor(Math.random()*15)+3)+' min</div></div>');
+    busMarkers.push({marker:m,bus:b,t:Math.random()});
+  });
+  startBusAnimation();
+}
+
+function startBusAnimation(){
+  stopBusAnimation();
+  var last=Date.now();
+  function animate(){
+    var now=Date.now();var dt=(now-last)/1000;last=now;
+    busMarkers.forEach(function(bm){
+      var pts=routes[bm.bus.route];if(!pts)return;
+      bm.t=(bm.t+dt*0.02)%1;
+      var total=pts.length-1;var idx=bm.t*total;var i=Math.floor(idx);var f=idx-i;
+      if(i>=total){i=total-1;f=1;}
+      var a=pts[i],b2=pts[Math.min(i+1,total)];
+      var lat=a[0]+(b2[0]-a[0])*f;var lng=a[1]+(b2[1]-a[1])*f;
+      bm.marker.setLatLng([lat,lng]);
+    });
+    animFrame=requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+function stopBusAnimation(){if(animFrame){cancelAnimationFrame(animFrame);animFrame=null;}}
+
+function centerMap(){
+  if(mapInstance)mapInstance.setView([11.1035,79.6508],12);
+  if(navigator.geolocation){navigator.geolocation.getCurrentPosition(function(p){if(mapInstance)mapInstance.setView([p.coords.latitude,p.coords.longitude],14);});}
+}
+
+function filterBus(route){
+  busMarkers.forEach(function(bm){
+    if(route==='all'||bm.bus.route===route){bm.marker.addTo(mapInstance);}
+    else{if(mapInstance.hasLayer(bm.marker))mapInstance.removeLayer(bm.marker);}
+  });
+}
+
+function toggleRoute(el){
+  var detail=el.querySelector('.route-detail');
+  detail.style.display=detail.style.display==='none'?'block':'none';
+}
+
+var opMapInited=false;
+function initOpMap(){
+  if(opMapInited)return;opMapInited=true;
+  setTimeout(function(){
+    if(opMapInstance)return;
+    opMapInstance=L.map('opMap',{zoomControl:true,attributionControl:false}).setView([11.1035,79.6508],13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(opMapInstance);
+    L.polyline(routes['MYL-101'],{color:'#C62828',weight:5,opacity:0.7}).addTo(opMapInstance);
+    var opIcon=L.divIcon({className:'',html:'<div class="bus-marker-icon" style="background:#C62828;font-size:14px">🚌 YOU</div>',iconAnchor:[40,15]});
+    var opMarker=L.marker([11.1035,79.6508],{icon:opIcon}).addTo(opMapInstance);
+    var t=0;
+    setInterval(function(){
+      t=(t+0.005)%1;var pts=routes['MYL-101'];var total=pts.length-1;
+      var idx=t*total;var i=Math.floor(idx);var f=idx-i;
+      if(i>=total){i=total-1;f=1;}
+      var a=pts[i],b2=pts[Math.min(i+1,total)];
+      var lat=a[0]+(b2[0]-a[0])*f;var lng=a[1]+(b2[1]-a[1])*f;
+      opMarker.setLatLng([lat,lng]);
+      document.getElementById('opLocation').textContent=lat.toFixed(4)+'° N, '+lng.toFixed(4)+'° E';
+    },1000);
+  },300);
+}
+
+var tripStarted=false;
+function toggleTrip(){
+  tripStarted=!tripStarted;
+  var card=document.getElementById('tripCard');
+  var btn=document.getElementById('tripBtn');
+  var gps=document.getElementById('gpsStatus');
+  if(tripStarted){
+    card.classList.add('active-trip');
+    btn.className='btn-trip btn-stop';btn.textContent='⏹ Stop Trip · பயணம் நிறுத்து';
+    gps.style.display='flex';
+    var km=0,pass=0,trips=1;
+    var interval=setInterval(function(){
+      if(!tripStarted){clearInterval(interval);return;}
+      km+=Math.random()*0.5;pass+=Math.floor(Math.random()*2);
+      document.getElementById('opKm').textContent=km.toFixed(1);
+      document.getElementById('opPass').textContent=pass;
+      document.getElementById('opTrips').textContent=trips;
+    },3000);
+  } else {
+    card.classList.remove('active-trip');
+    btn.className='btn-trip btn-start';btn.textContent='▶ Start Trip · பயணம் தொடங்கு';
+    gps.style.display='none';
+  }
+}
+
+setTimeout(function(){showScreen('roleSelect');},2200);
+</script>
+</body>
+</html>
